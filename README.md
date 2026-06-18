@@ -1,3 +1,7 @@
+#Essa é a continuação do projeto gerenciador de exercicio que descontinuei pois o expo não atualiza sdk coerente com versão do projeto. Estou fazendo com android studio e react native puro
+
+
+
 This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
 
 # Getting Started

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   View,
@@ -8,14 +8,35 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from 'react-native';
+import { database } from '../database';
+import User from '../database/models/User';
 
 export function ProfileScreen() {
   // Estados para os campos do perfil
-  const [name, setName] = useState('Matheus');
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [weight, setWeight] = useState('50'); // Peso em kg
-  const [height, setHeight] = useState('1.72'); // Altura em metros
+  const [weight, setWeight] = useState(''); // Peso em kg
+  const [height, setHeight] = useState(''); // Altura em metros
+
+  // Carregar os dados quando a tela abrir
+  useEffect(() => {
+    async function loadProfile() {
+      // Puxa todos os usuários cadastrados (como é perfil, só teremos 1)
+      const usersCollection = database.get<User>('users');
+      const existingUsers = await usersCollection.query().fetch();
+
+      if (existingUsers.length > 0) {
+        const currentUser = existingUsers[0];
+        setName(currentUser.name);
+        setEmail(currentUser.email);
+        setWeight(currentUser.currentWeight.toString());
+        setHeight(currentUser.height.toString());
+      }
+    }
+    loadProfile();
+  }, []);
 
   // Cálculo do IMC em tempo real
   const parsedWeight = parseFloat(weight.replace(',', '.'));
@@ -46,9 +67,45 @@ export function ProfileScreen() {
     return '#f97316'; // Laranja/Vermelho (Sobrepeso+)
   };
 
-  const handleSave = () => {
-    // Aqui entrará a lógica para salvar no WatermelonDB futuramente
-    alert('Perfil atualizado com sucesso!');
+// Função de Salvar no WatermelonDB
+  const handleSave = async () => {
+    // Validação básica
+    if (!name || !weight || !height) {
+      Alert.alert('Atenção', 'Por favor, preencha pelo menos o nome, peso e altura.');
+      return;
+    }
+
+    try {
+      // Abre a transação de escrita no banco
+      await database.write(async () => {
+        const usersCollection = database.get<User>('users');
+        const existingUsers = await usersCollection.query().fetch();
+
+        if (existingUsers.length > 0) {
+          // ATUALIZAR: Se já existe um usuário, vamos atualizar os dados dele
+          const currentUser = existingUsers[0];
+          await currentUser.update((u) => {
+            u.name = name;
+            u.email = email;
+            u.currentWeight = parsedWeight;
+            u.height = parsedHeight;
+          });
+        } else {
+          // CRIAR: Se o banco estiver vazio, cria o primeiro registro
+          await usersCollection.create((u) => {
+            u.name = name;
+            u.email = email;
+            u.currentWeight = parsedWeight;
+            u.height = parsedHeight;
+          });
+        }
+      });
+
+      Alert.alert('Sucesso!', 'Seus dados foram salvos no banco local.');
+    } catch (error) {
+      console.error('Erro ao salvar no banco:', error);
+      Alert.alert('Erro', 'Ocorreu um problema ao salvar os dados.');
+    }
   };
 
   return (

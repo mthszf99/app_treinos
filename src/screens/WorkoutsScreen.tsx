@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   View,
@@ -6,58 +6,73 @@ import {
   FlatList,
   TouchableOpacity,
   SafeAreaView,
+  Alert,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 
-// Interface temporária (depois virá do WatermelonDB)
-interface Workout {
-  id: string;
-  name: string;
-  goal: string;
-  duration: number;
-  frequency: string;
-}
+// Importações do banco de dados
+import { database } from '../database';
+import Workout from '../database/models/Workout';
 
 export function WorkoutsScreen() {
-  // Dados simulados para preencher a tela inicialmente
-  const [workouts, setWorkouts] = useState<Workout[]>([
-    {
-      id: '1',
-      name: 'Treino A - Peito e Tríceps',
-      goal: 'Ganho de Massa',
-      duration: 45,
-      frequency: '3 dias/semana',
-    },
-    {
-      id: '2',
-      name: 'Treino B - Costas e Bíceps',
-      goal: 'Ganho de Massa',
-      duration: 45,
-      frequency: '3 dias/semana',
-    },
-    {
-      id: '3',
-      name: 'Treino C - Pernas e Ombros',
-      goal: 'Ganho de Massa',
-      duration: 45,
-      frequency: '3 dias/semana',
+  const [workouts, setWorkouts] = useState<Workout[]>([]);
+  const navigation = useNavigation<any>();
+  // Função para buscar os treinos salvos no banco
+  const loadWorkouts = async () => {
+    try {
+      const workoutsCollection = database.get<Workout>('workouts');
+      // Busca todos os treinos salvos
+      const savedWorkouts = await workoutsCollection.query().fetch();
+      setWorkouts(savedWorkouts);
+    } catch (error) {
+      console.error('Erro ao carregar treinos:', error);
     }
-  ]);
+  };
 
+  // Carrega os dados assim que a tela abre
+  useEffect(() => {
+    loadWorkouts();
+  }, []);
+
+  // Função temporária para o botão "+" criar um treino de teste no banco
+  const handleAddTestWorkout = async () => {
+    try {
+      await database.write(async () => {
+        const workoutsCollection = database.get<Workout>('workouts');
+        await workoutsCollection.create((workout) => {
+          // Aqui usamos o seu objetivo e ritmo como padrão
+          workout.name = `Treino ${String.fromCharCode(65 + workouts.length)}`; // Gera Treino A, B, C...
+          workout.goal = 'Ganho de Massa';
+          workout.estimatedDuration = 45; // 45 minutos
+          workout.userId = 'user-teste-123'; // Como ainda não temos auth, usamos um ID fixo
+        });
+      });
+      
+      Alert.alert('Sucesso', 'Novo treino criado no banco de dados!');
+      loadWorkouts(); // Recarrega a lista para mostrar o novo treino na tela
+    } catch (error) {
+      console.error('Erro ao criar treino:', error);
+      Alert.alert('Erro', 'Não foi possível criar o treino.');
+    }
+  };
+
+  // Renderiza o visual de cada card de treino
   const renderWorkoutCard = ({ item }: { item: Workout }) => (
-    <TouchableOpacity style={styles.card}>
+    <TouchableOpacity style={styles.card}
+        onPress={() => navigation.navigate('WorkoutDetails', { 
+                workoutId: item.id, 
+                workoutName: item.name 
+        })}
+    >
       <View style={styles.cardHeader}>
         <Text style={styles.cardTitle}>{item.name}</Text>
-        <Text style={styles.durationBadge}>{item.duration} min</Text>
+        <Text style={styles.durationBadge}>{item.estimatedDuration} min</Text>
       </View>
       
       <View style={styles.cardBody}>
         <View style={styles.infoRow}>
           <Text style={styles.infoLabel}>Objetivo:</Text>
           <Text style={styles.infoText}>{item.goal}</Text>
-        </View>
-        <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Frequência:</Text>
-          <Text style={styles.infoText}>{item.frequency}</Text>
         </View>
       </View>
     </TouchableOpacity>
@@ -77,12 +92,16 @@ export function WorkoutsScreen() {
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
-          <Text style={styles.emptyText}>Você ainda não possui treinos cadastrados.</Text>
+          <Text style={styles.emptyText}>Você ainda não possui treinos cadastrados no banco de dados.</Text>
         }
       />
 
-      {/* Botão Flutuante para criar novo treino */}
-      <TouchableOpacity style={styles.fab} activeOpacity={0.8}>
+      {/* Botão Flutuante (+). Agora ele chama a função de criar no banco */}
+      <TouchableOpacity 
+        style={styles.fab} 
+        activeOpacity={0.8}
+        onPress={handleAddTestWorkout}
+      >
         <Text style={styles.fabIcon}>+</Text>
       </TouchableOpacity>
     </SafeAreaView>
@@ -92,7 +111,7 @@ export function WorkoutsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f172a', // Mantendo o padrão Dark Slate 900
+    backgroundColor: '#0f172a',
   },
   header: {
     paddingHorizontal: 24,

@@ -3,19 +3,15 @@ import { appSchema, tableSchema } from '@nozbe/watermelondb'
 export const databaseSchema = appSchema({
   version: 1,
   tables: [
-    // Tabela de Usuários
     tableSchema({
       name: 'users',
       columns: [
         { name: 'name', type: 'string' },
         { name: 'email', type: 'string' },
-        { name: 'current_weight', type: 'number' }, // em kg
-        { name: 'height', type: 'number' },         // em metros
-        { name: 'created_at', type: 'number' },
-      ],
+        { name: 'current_weight', type: 'number' },
+        { name: 'height', type: 'number' },
+      ]
     }),
-
-    // Biblioteca de Exercícios global
     tableSchema({
       name: 'exercises',
       columns: [
@@ -23,65 +19,46 @@ export const databaseSchema = appSchema({
         { name: 'muscle_group', type: 'string' },
         { name: 'description', type: 'string' },
         { name: 'execution_url', type: 'string' },
-      ],
+      ]
     }),
-
-    // Agrupamento de treinos criados (Ex: Treino A)
     tableSchema({
       name: 'workouts',
       columns: [
-        { name: 'user_id', type: 'string', isIndexed: true },
+        { name: 'user_id', type: 'string' },
         { name: 'name', type: 'string' },
         { name: 'goal', type: 'string' },
-        { name: 'estimated_duration', type: 'number' }, // minutos
+        { name: 'estimated_duration', type: 'number' },
         { name: 'created_at', type: 'number' },
-      ],
+      ]
     }),
-
-    // Agenda de dias e horários para os treinos
-    tableSchema({
-      name: 'workout_schedules',
-      columns: [
-        { name: 'workout_id', type: 'string', isIndexed: true },
-        { name: 'day_of_week', type: 'number' }, // 0 (domingo) a 6 (sábado)
-        { name: 'scheduled_time', type: 'string' }, // "07:00"
-      ],
-    }),
-
-    // Relacionamento de quais exercícios estão em quais treinos
     tableSchema({
       name: 'workout_exercises',
       columns: [
         { name: 'workout_id', type: 'string', isIndexed: true },
-        { name: 'exercise_id', type: 'string', isIndexed: true },
-        { name: 'order', type: 'number' },       // Ordem de execução: 1, 2, 3...
-        { name: 'target_sets', type: 'number' },  // Quantidade de séries padrão: 3, 4...
-      ],
+        { name: 'exercise_id', type: 'string' },
+        { name: 'order', type: 'number' },
+        { name: 'target_sets', type: 'number' },
+      ]
     }),
-
-    // Registro de cada sessão de treino iniciada com o cronômetro
+    // ADICIONADO: Tabela de Sessões Gerais de Treino
     tableSchema({
-      name: 'workout_sessions',
+      name: 'sessions',
       columns: [
-        { name: 'user_id', type: 'string', isIndexed: true },
         { name: 'workout_id', type: 'string', isIndexed: true },
         { name: 'started_at', type: 'number' },
-        { name: 'finished_at', type: 'number' },
-        { name: 'duration_seconds', type: 'number' }, // Tempo total do cronômetro
-      ],
+        { name: 'ended_at', type: 'number' },
+      ]
     }),
-
-    // Histórico detalhado de cada série executada dentro da sessão
+    // ADICIONADO: Tabela de Logs de Carga (Kg e Repetições) por série
     tableSchema({
-      name: 'executed_sets',
+      name: 'session_logs',
       columns: [
         { name: 'session_id', type: 'string', isIndexed: true },
-        { name: 'exercise_id', type: 'string', isIndexed: true },
-        { name: 'set_number', type: 'number' }, // 1ª série, 2ª série...
-        { name: 'weight', type: 'number' },     // Carga usada
-        { name: 'reps', type: 'number' },       // Repetições feitas
-        { name: 'is_completed', type: 'boolean' }, // Se marcou o "check"
-      ],
+        { name: 'exercise_id', type: 'string' },
+        { name: 'set_index', type: 'number' },
+        { name: 'weight', type: 'number' },
+        { name: 'reps', type: 'number' },
+      ]
     }),
-  ],
+  ]
 })

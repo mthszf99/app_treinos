@@ -213,6 +213,17 @@ export function WorkoutDetailsScreen({ route }: any) {
         <Text style={styles.subtitle}>Toque num exercício para configurar a ficha</Text>
       </View>
 
+      {exercises.length > 0 && (
+        <View style={styles.startContainer}>
+          <TouchableOpacity 
+            style={styles.startButton}
+            onPress={() => navigation.navigate('ActiveWorkout', { workoutId, workoutName })}
+          >
+            <Text style={styles.startButtonText}>▶ INICIAR TREINO</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       <FlatList
         data={exercises}
         keyExtractor={(item) => item.id}
@@ -367,4 +378,8 @@ const styles = StyleSheet.create({
   saveButtonText: { color: '#ffffff', fontSize: 16, fontWeight: 'bold' },
   deleteButton: { backgroundColor: 'transparent', padding: 14, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: '#ef4444' },
   deleteButtonText: { color: '#ef4444', fontSize: 15, fontWeight: 'bold' },
+
+  startContainer: { paddingHorizontal: 24, marginBottom: 16 },
+  startButton: { backgroundColor: '#22c55e', paddingVertical: 16, borderRadius: 12, alignItems: 'center' },
+  startButtonText: { color: '#ffffff', fontSize: 16, fontWeight: 'bold', letterSpacing: 1 },
 });

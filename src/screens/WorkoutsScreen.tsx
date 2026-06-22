@@ -5,7 +5,6 @@ import {
 } from 'react-native';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
 
-
 // Importações do banco de dados
 import { database } from '../database';
 import Workout from '../database/models/Workout';
@@ -15,15 +14,16 @@ export function WorkoutsScreen() {
   const [workouts, setWorkouts] = useState<Workout[]>([]);
   const navigation = useNavigation<any>();
   const isFocused = useIsFocused();
+  
+  // Estados do Modal de Edição
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [workoutToEdit, setWorkoutToEdit] = useState<Workout | null>(null);
   const [newWorkoutName, setNewWorkoutName] = useState('');
 
-  
+  // Função para carregar os treinos
   const loadWorkouts = async () => {
     try {
       const workoutsCollection = database.get<Workout>('workouts');
-      // Busca todos os treinos salvos
       const savedWorkouts = await workoutsCollection.query().fetch();
       setWorkouts(savedWorkouts);
     } catch (error) {
@@ -31,15 +31,14 @@ export function WorkoutsScreen() {
     }
   };
 
-
   useEffect(() => {
     if (isFocused) {
       loadWorkouts();
     }
   }, [isFocused]);
 
-  
-const handleDeleteWorkout = (workout: Workout) => {
+  // Função para Excluir Treino
+  const handleDeleteWorkout = (workout: Workout) => {
     Alert.alert(
       'Excluir Ficha de Treino',
       `Tem certeza que deseja apagar o "${workout.name}"? Todos os exercícios montados dentro dele serão removidos.`,
@@ -54,12 +53,10 @@ const handleDeleteWorkout = (workout: Workout) => {
                 const workoutsCollection = database.get<Workout>('workouts');
                 const workoutExercisesCollection = database.get<WorkoutExercise>('workout_exercises');
 
-                
                 const workoutToDelete = await workoutsCollection.find(workout.id);
                 
                 const allLinks = await workoutExercisesCollection.query().fetch();
                 const linksToDelete = allLinks.filter(link => link.workoutId === workout.id);
-
 
                 if ((workoutToDelete as any)._preparedState) {
                   (workoutToDelete as any)._preparedState = null;
@@ -70,7 +67,6 @@ const handleDeleteWorkout = (workout: Workout) => {
                   }
                 });
 
-                
                 const itemsToDestroy = [
                   workoutToDelete.prepareDestroyPermanently(),
                   ...linksToDelete.map(link => link.prepareDestroyPermanently())
@@ -90,7 +86,7 @@ const handleDeleteWorkout = (workout: Workout) => {
     );
   };
 
-  
+  // Função para Adicionar um Treino de Teste
   const handleAddTestWorkout = async () => {
     try {
       await database.write(async () => {
@@ -110,17 +106,47 @@ const handleDeleteWorkout = (workout: Workout) => {
     }
   };
 
-  
+  // Funções do Modal de Edição
+  const openEditModal = (workout: Workout) => {
+    setWorkoutToEdit(workout);
+    setNewWorkoutName(workout.name);
+    setIsEditModalVisible(true);
+  };
+
+  const handleSaveWorkoutName = async () => {
+    if (!workoutToEdit || newWorkoutName.trim() === '') {
+      setIsEditModalVisible(false);
+      return;
+    }
+
+    try {
+      await database.write(async () => {
+        const workoutsCollection = database.get<Workout>('workouts');
+        const workoutToUpdate = await workoutsCollection.find(workoutToEdit.id);
+
+        await workoutToUpdate.update((w) => {
+          w.name = newWorkoutName.trim();
+        });
+      });
+
+      setIsEditModalVisible(false);
+      setWorkoutToEdit(null);
+      loadWorkouts();
+    } catch (error) {
+      console.error('Erro ao renomear treino:', error);
+      Alert.alert('Erro', 'Não foi possível alterar o nome.');
+    }
+  };
+
+  // Renderização de cada Card
   const renderWorkoutCard = ({ item }: { item: Workout }) => (
     <TouchableOpacity 
       style={styles.card}
       activeOpacity={0.7}
-      
       onPress={() => navigation.navigate('WorkoutDetails', { 
         workoutId: item.id, 
         workoutName: item.name 
       })}
-      
       onLongPress={() => handleDeleteWorkout(item)}
     >
       <View style={styles.cardHeader}>
@@ -133,7 +159,13 @@ const handleDeleteWorkout = (workout: Workout) => {
           <Text style={styles.infoLabel}>Objetivo:</Text>
           <Text style={styles.infoText}>{item.goal}</Text>
         </View>
-        <Text style={styles.hintText}>Pressione e segure para excluir</Text>
+
+        <View style={styles.actionRow}>
+          <TouchableOpacity onPress={() => openEditModal(item)}>
+            <Text style={styles.editButtonText}>✏️ Renomear</Text>
+          </TouchableOpacity>
+          <Text style={styles.hintText}>Segure o card para excluir</Text>
+        </View>
       </View>
     </TouchableOpacity>
   );
@@ -156,7 +188,7 @@ const handleDeleteWorkout = (workout: Workout) => {
         }
       />
 
-{/* Botão Flutuante (+). Agora ele chama a função de criar no banco */}
+      {/* Botão Flutuante (+) */}
       <TouchableOpacity 
         style={styles.fab} 
         activeOpacity={0.8}
@@ -164,9 +196,49 @@ const handleDeleteWorkout = (workout: Workout) => {
       >
         <Text style={styles.fabIcon}>+</Text>
       </TouchableOpacity>
+
+      {/* MODAL DE EDIÇÃO DE NOME */}
+      <Modal
+        visible={isEditModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setIsEditModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Renomear Treino</Text>
+            
+            <TextInput
+              style={styles.modalInput}
+              value={newWorkoutName}
+              onChangeText={setNewWorkoutName}
+              placeholder="Ex: Peito e Tríceps"
+              placeholderTextColor="#64748b"
+              autoFocus
+            />
+            
+            <View style={styles.modalButtons}>
+              <TouchableOpacity 
+                style={[styles.modalBtn, styles.modalBtnCancel]} 
+                onPress={() => setIsEditModalVisible(false)}
+              >
+                <Text style={styles.modalBtnTextCancel}>Cancelar</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={[styles.modalBtn, styles.modalBtnSave]} 
+                onPress={handleSaveWorkoutName}
+              >
+                <Text style={styles.modalBtnTextSave}>Salvar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
+
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0f172a' },
@@ -189,8 +261,22 @@ const styles = StyleSheet.create({
   infoRow: { flexDirection: 'row', alignItems: 'center' },
   infoLabel: { color: '#94a3b8', fontSize: 14, marginRight: 6 },
   infoText: { color: '#e2e8f0', fontSize: 14, fontWeight: '500' },
-  hintText: { color: '#64748b', fontSize: 11, marginTop: 12, fontStyle: 'italic', textAlign: 'right' },
+  hintText: { color: '#64748b', fontSize: 11, fontStyle: 'italic', textAlign: 'right' },
   fab: { position: 'absolute', width: 56, height: 56, alignItems: 'center', justifyContent: 'center', right: 24, bottom: 24, backgroundColor: '#6366f1', borderRadius: 28, elevation: 8, shadowColor: '#6366f1', shadowOpacity: 0.3, shadowRadius: 4, shadowOffset: { width: 0, height: 4 } },
   fabIcon: { fontSize: 24, color: '#ffffff', fontWeight: 'bold' },
   emptyText: { color: '#94a3b8', textAlign: 'center', marginTop: 40, fontSize: 15 },
+  
+
+  actionRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 },
+  editButtonText: { color: '#38bdf8', fontSize: 14, fontWeight: 'bold' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center', padding: 24 },
+  modalContent: { backgroundColor: '#1e293b', width: '100%', borderRadius: 16, padding: 24, borderWidth: 1, borderColor: '#334155' },
+  modalTitle: { fontSize: 20, fontWeight: 'bold', color: '#f8fafc', marginBottom: 16 },
+  modalInput: { backgroundColor: '#0f172a', color: '#f8fafc', fontSize: 16, borderRadius: 8, padding: 12, borderWidth: 1, borderColor: '#334155', marginBottom: 20 },
+  modalButtons: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12 },
+  modalBtn: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8 },
+  modalBtnCancel: { backgroundColor: 'transparent' },
+  modalBtnTextCancel: { color: '#94a3b8', fontSize: 16, fontWeight: 'bold' },
+  modalBtnSave: { backgroundColor: '#38bdf8' },
+  modalBtnTextSave: { color: '#0f172a', fontSize: 16, fontWeight: 'bold' },
 });

@@ -4,6 +4,7 @@ import {
   SafeAreaView, Alert, Modal, TextInput 
 } from 'react-native';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
+import auth from '@react-native-firebase/auth';
 
 // Importações do banco de dados
 import { database } from '../database';
@@ -88,6 +89,8 @@ export function WorkoutsScreen() {
 
   // Função para Adicionar um Treino de Teste
   const handleAddTestWorkout = async () => {
+    const currentUserUid = auth().currentUser?.uid || 'usuario-desconhecido';
+
     try {
       await database.write(async () => {
         const workoutsCollection = database.get<Workout>('workouts');
@@ -95,7 +98,7 @@ export function WorkoutsScreen() {
           workout.name = `Treino ${String.fromCharCode(65 + workouts.length)}`;
           workout.goal = 'Ganho de Massa';
           workout.estimatedDuration = 45;
-          workout.userId = 'user-teste-123';
+          workout.userId = currentUserUid;
         });
       });
       

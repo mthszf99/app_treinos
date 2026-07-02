@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, Animated } from 'react-native';
 import { useIsFocused, useNavigation } from '@react-navigation/native';
 
 // banco de dados
@@ -16,36 +16,60 @@ export function HomeScreen() {
   const [weeklyCount, setWeeklyCount] = useState(0);
   const [lastWorkoutInfo, setLastWorkoutInfo] = useState<{ name: string; date: string; duration: string } | null>(null);
   const [userName, setUserName] = useState('Atleta');
+  
+  // NOVO: Estado de Carregamento
+  const [isLoading, setIsLoading] = useState(true);
 
-  // mtea de treinos, inicia com 3 padrao
+  // meta de treinos, inicia com 3 padrao
   const WEEKLY_GOAL = 3;
+
+  // NOVO: Valor Animado para o Skeleton (Inicia com opacidade 0.5)
+  const fadeAnim = useRef(new Animated.Value(0.5)).current;
+
+  // NOVO: Efeito para pulsar o Skeleton
+  useEffect(() => {
+    if (isLoading) {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(fadeAnim, {
+            toValue: 1,
+            duration: 800,
+            useNativeDriver: true,
+          }),
+          Animated.timing(fadeAnim, {
+            toValue: 0.5,
+            duration: 800,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    }
+  }, [isLoading, fadeAnim]);
 
   useEffect(() => {
     async function loadDashboardData() {
+      setIsLoading(true); // Bloqueia a tela mostrando o esqueleto
+      
       try {
         const userCollection = database.get<User>('users');
         const savedUsers = await userCollection.query().fetch();
 
-          if (savedUsers.length > 0) {
+        if (savedUsers.length > 0) {
           const firstName = savedUsers[0].name.split(' ')[0];
           setUserName(firstName);
-}
-
+        }
 
         const sessionCollection = database.get<Session>('sessions');
         const workoutCollection = database.get<Workout>('workouts');
 
-
         const allSessions = await sessionCollection.query().fetch();
         const sortedSessions = allSessions.sort((a, b) => b.startedAt.getTime() - a.startedAt.getTime());
-
         
         const sevenDaysAgo = new Date();
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
         
         const recentSessions = sortedSessions.filter(session => session.startedAt >= sevenDaysAgo);
         setWeeklyCount(recentSessions.length);
-
         
         if (sortedSessions.length > 0) {
           const lastSession = sortedSessions[0];
@@ -70,6 +94,12 @@ export function HomeScreen() {
 
       } catch (error) {
         console.error('Erro ao carregar dashboard:', error);
+      } finally {
+        // NOVO: Um pequeno timeout artificial (1 segundo) para garantir
+        // que o usuário veja a animação suave antes de renderizar os dados
+        setTimeout(() => {
+          setIsLoading(false);
+        }, 1000);
       }
     }
 
@@ -78,19 +108,59 @@ export function HomeScreen() {
     }
   }, [isFocused]);
 
-  
   const progressPercentage = Math.min((weeklyCount / WEEKLY_GOAL) * 100, 100);
 
+  // --- RENDERIZAÇÃO DO SKELETON (TELA DE CARREGAMENTO) ---
+  if (isLoading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+          
+          {/* Esqueleto do Header */}
+          <View style={styles.header}>
+            <Animated.View style={[styles.skeletonBar, { width: 220, height: 38, opacity: fadeAnim, marginBottom: 8 }]} />
+            <Animated.View style={[styles.skeletonBar, { width: 280, height: 18, opacity: fadeAnim }]} />
+          </View>
+
+          {/* Esqueleto do Cartão de Meta */}
+          <Animated.View style={[styles.card, { opacity: fadeAnim, minHeight: 140, justifyContent: 'space-around' }]}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+              <View style={[styles.skeletonBar, { width: 140, height: 22 }]} />
+              <View style={[styles.skeletonBar, { width: 80, height: 28, borderRadius: 12 }]} />
+            </View>
+            <View style={[styles.skeletonBar, { width: '70%', height: 16 }]} />
+            <View style={[styles.skeletonBar, { width: '100%', height: 12 }]} />
+          </Animated.View>
+
+          {/* Esqueleto do Cartão de Último Treino */}
+          <Animated.View style={[styles.card, { opacity: fadeAnim, minHeight: 140 }]}>
+            <View style={[styles.skeletonBar, { width: 200, height: 20, marginBottom: 16 }]} />
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <View style={[styles.skeletonBar, { width: 48, height: 48, borderRadius: 24, marginRight: 16 }]} />
+              <View style={{ flex: 1 }}>
+                <View style={[styles.skeletonBar, { width: '80%', height: 18, marginBottom: 8 }]} />
+                <View style={[styles.skeletonBar, { width: '50%', height: 14 }]} />
+              </View>
+            </View>
+          </Animated.View>
+
+          {/* Esqueleto do Botão */}
+          <Animated.View style={[styles.skeletonBar, { width: '100%', height: 60, borderRadius: 16, marginTop: 12, opacity: fadeAnim }]} />
+
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
+ 
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        
         
         <View style={styles.header}>
           <Text style={styles.greeting}>Olá, {userName}! 👋</Text>
           <Text style={styles.subtitle}>Pronto para buscar o seu melhor hoje?</Text>
         </View>
-
         
         <View style={styles.card}>
           <View style={styles.cardHeader}>
@@ -103,13 +173,11 @@ export function HomeScreen() {
               ? 'Parabéns! Meta atingida. 💪' 
               : `Faltam ${WEEKLY_GOAL - weeklyCount} treinos para bater a meta.`}
           </Text>
-
           
           <View style={styles.progressBarBackground}>
             <View style={[styles.progressBarFill, { width: `${progressPercentage}%` }]} />
           </View>
         </View>
-
         
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Último Treino Realizado</Text>
@@ -270,5 +338,10 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     letterSpacing: 0.5,
+  },
+  
+  skeletonBar: {
+    backgroundColor: '#334155', 
+    borderRadius: 6,
   },
 });
